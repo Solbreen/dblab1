@@ -21,19 +21,99 @@ class UserRepository:
     # TODO: Реализовать save(user: User) -> None
     # Используйте INSERT ... ON CONFLICT DO UPDATE
     async def save(self, user: User) -> None:
-        raise NotImplementedError("TODO: Реализовать UserRepository.save")
+        query = text(
+            """
+            INSERT INTO users (id, email, name, created_at)
+            VALUES (:id, :email, :name, :created_at)
+            ON CONFLICT (id) DO UPDATE
+            SET
+            email = EXCLUDED.email,
+            name = EXCLUDED.name,
+            created_at = EXCLUDED.created_at
+            """
+        )
 
+        await self.session.execute(
+            query,
+            {
+                "id": user.id,
+                "email": user.email,
+                "name": user.name,
+                "created_at": user.created_at,
+            },
+        )
+    
     # TODO: Реализовать find_by_id(user_id: UUID) -> Optional[User]
     async def find_by_id(self, user_id: uuid.UUID) -> Optional[User]:
-        raise NotImplementedError("TODO: Реализовать UserRepository.find_by_id")
+        query = text(
+            """
+            SELECT id, email, name, created_at
+            FROM users
+            WHERE id = :user_id
+            """
+        )
+
+        result = await self.session.execute(query, {"user_id": user_id})
+        row = result.mappings().first()
+
+        if row is None:
+            return None
+
+        return User(
+            id=row["id"],
+            email=row["email"],
+            name=row["name"],
+            created_at=row["created_at"],
+        )
 
     # TODO: Реализовать find_by_email(email: str) -> Optional[User]
     async def find_by_email(self, email: str) -> Optional[User]:
-        raise NotImplementedError("TODO: Реализовать UserRepository.find_by_email")
+        query = text(
+            """
+            SELECT id, email, name, created_at
+            FROM users
+            WHERE email = :email
+            """
+        )
+
+        result = await self.session.execute(query, {"email": email})
+        row = result.mappings().first()
+
+        if row is None:
+            return None
+
+        return User(
+            id=row["id"],
+            email=row["email"],
+            name=row["name"],
+            created_at=row["created_at"],
+        )
 
     # TODO: Реализовать find_all() -> List[User]
     async def find_all(self) -> List[User]:
-        raise NotImplementedError("TODO: Реализовать UserRepository.find_all")
+        query = text(
+            """
+            SELECT id, email, name, created_at
+            FROM users
+            ORDER BY created_at
+            """
+        )
+
+        result = await self.session.execute(query)
+        rows = result.mappings().all()
+
+        users = []
+        for row in rows:
+            users.append(
+                User(
+                    id=row["id"],
+                    email=row["email"],
+                    name=row["name"],
+                    created_at=row["created_at"],
+                )
+            )
+
+        return users
 
 
 class OrderRepository:

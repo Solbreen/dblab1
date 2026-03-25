@@ -5,6 +5,7 @@ from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 from typing import List
+from dataclasses import dataclass
 
 from .exceptions import (
     OrderAlreadyPaidError,
@@ -18,21 +19,44 @@ from .exceptions import (
 # TODO: Реализовать OrderStatus (str, Enum)
 # Значения: CREATED, PAID, CANCELLED, SHIPPED, COMPLETED
 class OrderStatus(str, Enum):
-    pass
+    CREATED = "created"
+    PAID = "paid"
+    CANCELLED = "cancelled"
+    SHIPPED = "shipped"
+    COMPLETED = "completed"
 
 
 # TODO: Реализовать OrderItem (dataclass)
 # Поля: product_name, price, quantity, id, order_id
 # Свойство: subtotal (price * quantity)
 # Валидация: quantity > 0, price >= 0
+@dataclass
 class OrderItem:
-    pass
+    product_name: str
+    price: Decimal
+    quantity: int
+    id: uuid.UUID = field(default_factory=uuid.uuid4)
+    order_id: uuid.UUID = None
 
+    def __post_init__(self):
+        if self.quantity <= 0:
+            raise InvalidQuantityError(self.quantity)
+
+        if self.price < 0:
+            raise InvalidPriceError(self.price)
+
+    @property
+    def subtotal(self) -> Decimal:
+        return self.price * self.quantity
 
 # TODO: Реализовать OrderStatusChange (dataclass)
 # Поля: order_id, status, changed_at, id
+@dataclass
 class OrderStatusChange:
-    pass
+    order_id: uuid.UUID
+    status: OrderStatus
+    changed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    id: uuid.UUID = field(default_factory=uuid.uuid4)
 
 
 # TODO: Реализовать Order (dataclass)
@@ -43,5 +67,41 @@ class OrderStatusChange:
 #   - cancel() -> None
 #   - ship() -> None
 #   - complete() -> None
+@dataclass
 class Order:
-    pass
+    user_id: uuid.UUID
+    id: uuid.UUID = field(default_factory=uuid.uuid4)
+    status: OrderStatus = OrderStatus.CREATED
+    total_amount: Decimal = Decimal("0")
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    items: List[OrderItem] = field(default_factory=list)
+    status_history: List[OrderStatusChange] = field(default_factory=list)
+
+    def add_item() -> OrderItem:
+        item = OrderItem(
+            product_name=product_name,
+            price=price,
+            quantity=quantity,
+            order_id=self.id,
+        )
+
+        self.items.append(item)
+        self.total_amount += item.subtotal
+        return item
+    
+    def pay() -> None:
+        pass
+
+    def cancel() -> None:
+        pass
+    
+    def ship() -> None:
+        
+
+        self.status = OrderStatus.SHIPPED
+        self.status_history.append(
+            OrderStatusChange(order_id=self.id, status=self.status)
+        )
+
+    def complete() -> None:
+        pass
