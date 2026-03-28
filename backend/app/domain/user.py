@@ -17,9 +17,9 @@ from .exceptions import InvalidEmailError
 @dataclass
 class User:
     email: str
-    name: str
+    name: str = ""
     id: uuid.UUID = field(default_factory = uuid.uuid4)
-    created_at: datetime = filed(default_factory = lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory = lambda: datetime.now(timezone.utc))
     
     def __post_init__(self):
         etalon = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"

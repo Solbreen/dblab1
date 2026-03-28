@@ -1,11 +1,11 @@
 """Доменные сущности заказа."""
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
 from typing import List
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .exceptions import (
     OrderAlreadyPaidError,
@@ -13,6 +13,7 @@ from .exceptions import (
     InvalidQuantityError,
     InvalidPriceError,
     InvalidAmountError,
+    DomainException,
 )
 
 
@@ -68,7 +69,7 @@ class OrderStatusChange:
 #   - ship() -> None
 #   - complete() -> None
 @dataclass
-class Order:
+class Order: 
     user_id: uuid.UUID
     id: uuid.UUID = field(default_factory=uuid.uuid4)
     status: OrderStatus = OrderStatus.CREATED
@@ -77,31 +78,64 @@ class Order:
     items: List[OrderItem] = field(default_factory=list)
     status_history: List[OrderStatusChange] = field(default_factory=list)
 
-    def add_item() -> OrderItem:
+    def add_item(self, product_name, price, quantity) -> OrderItem:
+        if self.status == OrderStatus.CANCELLED:
+            raise OrderCancelledError(self.id)
+
         item = OrderItem(
-            product_name=product_name,
-            price=price,
-            quantity=quantity,
-            order_id=self.id,
+            product_name = product_name,
+            price = price,
+            quantity = quantity,
+            order_id = self.id,
         )
 
         self.items.append(item)
         self.total_amount += item.subtotal
         return item
     
-    def pay() -> None:
-        pass
+    def pay(self) -> None:
+        if self.status in [OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.COMPLETED]:
+            raise OrderAlreadyPaidError(self.id)
 
-    def cancel() -> None:
-        pass
-    
-    def ship() -> None:
-        
+        if self.status == OrderStatus.CANCELLED:
+            raise OrderCancelledError(self.id)
 
-        self.status = OrderStatus.SHIPPED
+        if self.total_amount < 0:
+            raise InvalidAmountError(self.total_amount)
+
+        self.status = OrderStatus.PAID
         self.status_history.append(
             OrderStatusChange(order_id=self.id, status=self.status)
         )
 
-    def complete() -> None:
-        pass
+    def cancel(self) -> None:
+        if self.status == OrderStatus.CANCELLED:
+            raise OrderCancelledError(self.id)
+        if self.status == OrderStatus.PAID:
+            raise OrderAlreadyPaidError(self.id)
+        self.status = OrderStatus.CANCELLED
+        self.status_history.append(
+            OrderStatusChange(order_id=self.id, status=self.status)
+        )
+    
+    def ship(self) -> None:
+        if self.status == OrderStatus.CANCELLED:
+            raise OrderCancelledError(self.id)
+        if self.status == OrderStatus.PAID:
+            self.status = OrderStatus.SHIPPED
+            self.status_history.append(
+                OrderStatusChange(order_id=self.id, status=self.status)
+            )
+        else:
+            raise ValueError("Доставляем только оплаченные заказы")
+
+    def complete(self) -> None:
+        if self.status == OrderStatus.CANCELLED:
+            raise OrderCancelledError(self.id)
+        if self.status == OrderStatus.SHIPPED:
+            self.status = OrderStatus.COMPLETED
+            self.status_history.append(
+                OrderStatusChange(order_id=self.id, status=self.status)
+            )
+        else:
+            raise ValueError("Завршаем только доставленные заказы")
